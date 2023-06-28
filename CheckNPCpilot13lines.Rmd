@@ -1,0 +1,578 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Quick check of the first no-genetic data demultiplex sequencing from the pilot.
+NPCs
+
+```{r}
+library(Seurat)
+library(tidyverse)
+#library(DoubletFinder)
+library(enrichR)
+library(clustree)
+#library("scClassify")
+#library(SingleCellExperiment)
+#library("Matrix")
+
+
+```
+Read in the data
+
+```{r}
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/seu_souporcell_ADHD.rds")
+colnames(seu@meta.data)
+
+unique(seu$orig.ident)
+unique(seu$souporcell_assignment)
+unique(seu$souporcell_status)
+dim(seu)
+
+
+```
+
+```{r}
+
+table(seu$souporcell_assignment)
+
+```
+
+Look at the sequencing
+
+```{r}
+
+VlnPlot(seu, features = c("nCount_RNA","nFeature_RNA"), pt.size = 0.001)
+VlnPlot(seu, features = c("nFeature_RNA"), pt.size = 0.001, y.max = 500)
+
+```
+
+```{r}
+
+table(seu$souporcell_status)
+dim(seu)
+
+
+```
+
+
+
+
+Calculate the percent mitochondrial genes
+```{r}
+seu <- PercentageFeatureSet(seu, pattern = "^MT-", col.name = "percent.MT")
+seu$percent.MT %>% summary
+
+VlnPlot(seu, features = "percent.MT", pt.size = 0.001)
+VlnPlot(seu, features = "percent.MT", pt.size = 0.001, y.max = 20)
+
+
+```
+I'll use 10% as a cutoff and check if this removes more of the low read cells. I believe this object is already the CellRanger Filtered object. 
+
+```{r}
+#Remove any cells with more than 10% mitochondrial counts
+seu.ft <- subset(seu, percent.MT < 10)
+dim(seu)
+dim(seu.ft)
+
+# removed 656 cells
+VlnPlot(seu.ft, features = c("nCount_RNA","nFeature_RNA","percent.MT"), pt.size = 0.001)
+
+
+```
+
+```{r}
+# have a look at how the counts and RNA are distributed across single, doublet, unassigned
+
+VlnPlot(seu, features = c("nCount_RNA","nFeature_RNA"), group.by = "souporcell_status")
+# see most of the unassigned have low counts and features and doublets have higher counts and higher features
+
+VlnPlot(seu, features = c("nCount_RNA"), group.by = "souporcell_status", y.max = 5000)
+VlnPlot(seu, features = c("nFeature_RNA"), group.by = "souporcell_status", y.max = 2000)
+
+```
+I will filter for higher counts and lower counts
+
+
+```{r}
+# Counts > 2000 to get ride of unassigned
+# RNA > 300
+# doublets we might just remove by the assignment or use doublet finder later
+
+seu.ft2 <- subset(seu.ft, nCount_RNA > 2000 & nFeature_RNA > 300)
+dim(seu)
+dim(seu.ft)
+dim(seu.ft2)
+# this removes 1391 
+
+VlnPlot(seu.ft2, features = c("nCount_RNA","nFeature_RNA","percent.MT"), pt.size = 0.001)
+
+# how many of each line do we detect
+
+table(seu.ft2$souporcell_assignment)
+VlnPlot(seu.ft2, features = c("nCount_RNA","nFeature_RNA","percent.MT"), group.by = "souporcell_assignment", pt.size = 0.001)
+
+
+```
+clean up
+
+```{r}
+
+seu <- seu.ft2
+rm(seu.ft2, seu.ft)
+
+```
+
+Now the workflow to make clusters
+```{r}
+seu <- NormalizeData(seu, normalization.method = "LogNormalize", scale.factor = 10000)
+seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2500)
+
+var  <- VariableFeatures(seu)
+top10 <- var[1:10]
+
+p1 <- VariableFeaturePlot(seu) 
+p2 <- LabelPoints(plot = p1, points = top10, repel = TRUE)
+p2
+
+
+
+```
+Scale and get PCA
+
+```{r}
+
+
+#Linear dimensionality reduction
+#Choosing the number of PCs can depend on how many cells you have
+seu <- ScaleData(seu)
+seu <- RunPCA(seu, assay = "RNA", npcs = 30)
+
+PCAPlot(seu)
+
+#Assess how many PCs capture most of the information in the data 
+ElbowPlot(seu, ndims = 30)
+
+```
+
+20 PCs are good now make the UMAP
+
+```{r}
+
+seu <- RunUMAP(seu, dims = 1:20, n.neighbors = 121)
+DimPlot(seu, group.by = "orig.ident")
+
+```
+
+Find clusters
+
+```{r}
+
+seu <- FindNeighbors(seu, dims = 1:20, k.param = 121)
+# the number of clusters is dependent on the resolution a number from 0-2. 
+# Higher values make more clusters
+# we include 
+seu <- FindClusters(seu, resolution = c(0,0.05,0.25,0.4,0.5,0.6,1,1.5) )
+
+# we can visualize which cells are grouped together at different resolutions using clustree
+
+clustree(seu, prefix = "RNA_snn_res.")
+
+# 0.6 looks good to annotate.  Each cluster is splitting apart up to this point and then the cells start merging and changing clusters.
+
+```
+Visualize
+
+```{r}
+DimPlot(seu, group.by = "RNA_snn_res.0.6", label = TRUE)
+DimPlot(seu, group.by = "RNA_snn_res.1", label = TRUE)
+# clustering could be improved
+
+```
+
+Look at expression profiles of known cell type markers
+
+```{r}
+
+
+da_neurons <- c("TH","SLC6A3","SLC18A2","SOX6","NDNF","SNCG","ALDH1A1","CALB1","TACR2","SLC17A6","SLC32A1","OTX2","GRP","LPL","CCK","VIP")
+NPC_orStemLike <- c("DCX","NEUROD1","TBR1","PCNA","MKI67","SOX2","NES","PAX6","MASH1")
+mature_neurons = c("RBFOX3","SYP","DLG45","VAMP1","VAMP2","TUBB3","SYT1","BSN","HOMER1","SLC17A6")
+excitatory_neurons = c("GRIA2","GRIA1","GRIA4","GRIN1","GRIN2B","GRIN2A","GRIN3A","GRIN3","GRIP1","CAMK2A")
+inhbitory_neurons = inh = c("GAD1","GAD2", "GAT1","PVALB","GABR2","GABR1","GBRR1","GABRB2","GABRB1","GABRB3","GABRA6","GABRA1","GABRA4","TRAK2")
+astrocytes <- c("GFAP","S100B","AQP4","APOE", "SOX9","SLC1A3")
+oligodendrocytes <- c("MBP","MOG","OLIG1","OLIG2","SOX10")
+opc <- 
+radial_glia <- c("PTPRC","AIF1","ADGRE1", "VIM", "TNC","PTPRZ1","FAM107A","HOPX","LIFR",
+              "ITGB5","IL6ST","SLC1A3")
+epithelial <- c("HES1","HES5","SOX2","SOX10","NES","CDH1","NOTCH1")
+
+microglia <- c("IBA1","P2RY12","P2RY13","TREM119", "GPR34","SIGLECH","TREM2",
+               "CX3CR1","FCRLS","OLFML3","HEXB","TGFBR1", "SALL1","MERTK",
+               "PROS1")
+
+features_list <- c("MKI67","SOX2","POU5F1","DLX2","PAX6","SOX9","HES1","NES","RBFOX3","MAP2","NCAM1","CD24","GRIA2","GRIN2B","GABBR1","GAD1","GAD2","GABRA1","GABRB2","TH","ALDH1A1","LMX1B","NR4A2","CORIN","CALB1","KCNJ6","CXCR4","ITGA6","SLC1A3","CD44","AQP4","S100B", "PDGFRA","OLIG2","MBP","CLDN11","VIM","VCAM1")
+
+short_list <- c("MKI67","SOX9","HES1","NES","DLX2","RBFOX3","MAP2","TH","CALB1","KCNJ6","SLC1A3","CD44","AQP4","S100B","OLIG2","MBP","VIM")
+
+
+
+```
+
+View on UMAP
+
+```{r}
+
+Idents(seu) <- "RNA_snn_res.0.6"
+
+for (i in NPC_orStemLike) {
+  print(FeaturePlot(seu, features = i, min.cutoff = 'q1', max.cutoff = 'q97', label = TRUE))
+}
+
+```
+
+```{r}
+Idents(seu) <- "RNA_snn_res.0.6"
+
+for (i in astrocytes) {
+  print(FeaturePlot(seu, features = i, min.cutoff = 'q1', max.cutoff = 'q97', label = TRUE))
+}
+
+```
+
+```{r}
+
+Idents(seu) <- "RNA_snn_res.0.6"
+
+for (i in radial_glia) {
+  print(FeaturePlot(seu, features = i, min.cutoff = 'q1', max.cutoff = 'q97', label = TRUE))
+}
+
+```
+
+```{r}
+Idents(seu) <- "RNA_snn_res.0.6"
+
+mature_neuronsB = c("RBFOX3","SYP","VAMP1","VAMP2","TUBB3","SYT1","BSN","HOMER1","SLC17A6")
+for (i in mature_neuronsB) {
+  print(FeaturePlot(seu, features = i, min.cutoff = 'q1', max.cutoff = 'q97', label = TRUE))
+}
+
+
+
+```
+
+
+Dot plots and heatmaps
+
+```{r}
+DotPlot(seu, features = radial_glia)+ RotatedAxis()
+DotPlot(seu, features = NPC_orStemLike) + RotatedAxis()
+DotPlot(seu, features = astrocytes) + RotatedAxis()
+
+```
+
+Find cluster markers
+
+```{r}
+Idents(seu) <- "RNA_snn_res.0.6"
+ClusterMarkers <- FindAllMarkers(seu, only.pos = TRUE)
+
+```
+Have a look at the top cluster markers
+```{r}
+head(ClusterMarkers)
+top5 <- ClusterMarkers %>% group_by(cluster) %>% top_n(n=5, wt =avg_log2FC)
+
+top2 <- ClusterMarkers %>% group_by(cluster) %>% top_n(n=2, wt =avg_log2FC)
+DoHeatmap(seu, features = top5$gene, size = 3, angle = 90, group.by = "RNA_snn_res.0.6")
+
+DoHeatmap(seu, features = top2$gene, size = 3, angle = 90, group.by = "RNA_snn_res.0.6")
+```
+
+Now use EnrichR to check cell type libraries
+
+```{r}
+setEnrichrSite("Enrichr") # Human genes
+# list of all the databases
+# get the possible libraries
+dbs <- listEnrichrDbs()
+
+# this will list the possible libraries
+dbs
+
+# select libraries with cell types
+db <- c('CellMarker_Augmented_2021','Azimuth_Cell_Types_2021')
+
+# function for a quick look
+checkCelltypes <- function(cluster_num = 0){
+  clusterX <- ClusterMarkers %>% filter(cluster == cluster_num & avg_log2FC > 0.25)
+  genes <- clusterX$gene
+  # the cell type libraries
+  # get the results for each library
+  clusterX.cell <- enrichr(genes, databases = db)
+  # visualize the results
+print(plotEnrich(clusterX.cell[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'CellMarker_Augmented_2021'))
+print(plotEnrich(clusterX.cell[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'Azimuth_Cell_Types_2021'))
+
+}
+
+
+```
+
+Check each cluster
+```{r}
+cluster0 <- checkCelltypes(cluster_num = 0)
+
+```
+```{r}
+cluster1 <- checkCelltypes(cluster_num = 1)
+```
+
+```{r}
+cluster2 <- checkCelltypes(cluster_num = 2)
+```
+
+```{r}
+cluster3 <- checkCelltypes(cluster_num = 3)
+```
+```{r}
+cluster4 <- checkCelltypes(cluster_num = 4)
+```
+```{r}
+cluster5 <- checkCelltypes(cluster_num = 5)
+```
+```{r}
+cluster6 <- checkCelltypes(cluster_num = 6)
+```
+```{r}
+cluster7 <- checkCelltypes(cluster_num = 7)
+```
+```{r}
+cluster8 <- checkCelltypes(cluster_num = 8)
+```
+```{r}
+cluster9 <- checkCelltypes(cluster_num = 9)
+```
+```{r}
+cluster10 <- checkCelltypes(cluster_num = 10)
+```
+Add cell type annotations
+
+```{r}
+# we need to set the identity to rename
+Idents(seu) <- "RNA_snn_res.0.6"
+
+# we need to make a vector of the cell type in the same order - in the cluster order
+
+cell_types <- c("NPC", "RG-astro","NPC-astro",
+                 "stem cell 1","NPC-proliferating","Neuron",
+                 "stem cell 2","endothelial","proliferating",
+                 "progenitors-nestin","glia stem cell")
+names(cell_types) <- levels(seu)
+
+
+seu <- RenameIdents(seu, cell_types)
+seu <- AddMetaData(object=seu, metadata=Idents(seu), col.name = "CellTypes")
+
+DimPlot(seu, label = TRUE)
+
+Idents(seu) <- "RNA_snn_res.0.6"
+cell_types <- c("NPC", "glia","NPC",
+                 "stem","NPC","Neuron",
+                 "stem","glia","stem",
+                 "stem","glia")
+names(cell_types) <- levels(seu)
+seu <- RenameIdents(seu, cell_types)
+seu <- AddMetaData(object=seu, metadata=Idents(seu), col.name = "MainCelltypes")
+
+DimPlot(seu, label = TRUE)
+
+
+```
+
+See cell counts for each line and cell type
+
+```{r}
+cdf <- as.data.frame(table(seu$souporcell_assignment,seu$CellTypes))
+
+cdf2 <- as.data.frame(table(seu$souporcell_assignment,seu$MainCelltypes))
+
+
+write.csv(cdf, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/soup_ADHD_cellcountslinetype.csv")
+
+df_wide <- cdf %>%
+  pivot_wider(names_from = Var2, values_from = Freq)
+
+write.csv(df_wide, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/soup_ADHD_cellcountslinetype2.csv")
+
+df_wide2 <- cdf2 %>%
+  pivot_wider(names_from = Var2, values_from = Freq)
+
+
+```
+
+```{r}
+
+Idents(seu) <- "souporcell_status"
+table(seu$souporcell_status)
+singlet <- subset(seu, idents = "singlet")
+
+```
+
+
+```{r}
+VlnPlot(singlet, features = "nFeature_RNA", group.by = "souporcell_assignment")
+
+Idents(singlet)<- "MainCelltypes"
+DimPlot(singlet, group.by = "souporcell_assignment", label = TRUE)
+
+```
+
+We might need to separate and harmonize each cell type.
+
+```{r}
+# make a list of seurat objects by our cell type variable
+sublist <- SplitObject(singlet, split.by = "souporcell_assignment")
+# normalize and find variable features
+for (i in 1:length(sublist)){
+  sublist[[i]] <- NormalizeData(sublist[[i]], verbose = FALSE)
+  sublist[[i]] <- FindVariableFeatures(sublist[[i]], selection.method = "vst")
+}
+
+
+
+```
+
+```{r}
+# Create an empty Seurat object to store the integrated data
+# Take the first Seurat object from the list as the starting point
+integrated_seurat <- subset(sublist[[1]])
+
+
+# Iterate over the list of Seurat objects
+for (i in 1:length(sublist)) {
+  # Rename the 'orig.ident' metadata inside the seurat object to match the object name in the list
+  sublist[[i]]$orig.ident <- names(sublist)[i]
+
+}
+
+sample.list <- sublist
+for (i in 1:length(sample.list)) {
+  # Normalize and scale the data
+  sample.list[[i]] <- NormalizeData(sample.list[[i]], verbose = FALSE)
+  sample.list[[i]] <- ScaleData(sample.list[[i]], verbose = FALSE)
+  # Find variable features
+  sample.list[[i]] <- FindVariableFeatures(sample.list[[i]], selection.method = "vst")
+  # Get the variable features
+  variable_features <- VariableFeatures(sample.list[[i]])
+  # Run PCA with the variable features
+  sample.list[[i]] <- RunPCA(sample.list[[i]], verbose = FALSE, npcs = 30, features = variable_features)
+}
+
+int.anchors <- FindIntegrationAnchors(object.list = sample.list, dims = 1:30, reduction = "rpca")
+integrated_seurat <- IntegrateData(anchorset = int.anchors,  dims = 1:30, k.weight = 72)
+# the k value is the problem
+# must set the k weight to the lowest cell count
+
+
+```
+
+```{r}
+
+DefaultAssay(integrated_seurat) <- "integrated"
+integrated_seurat <- ScaleData(integrated_seurat, verbose = FALSE)
+# only the integrated features will be the pca input
+
+integrated_seurat <- RunPCA(integrated_seurat, npcs = 20, verbose = FALSE)
+integrated_seurat <- RunUMAP(integrated_seurat, reduction = "pca", dims = 1:20, n.neighbors = 81)
+
+
+```
+
+```{r}
+output_path <- "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/"
+
+saveRDS(integrated_seurat,paste(output_path,"IntegratedSeuratGraphs.RDS",sep = ""))
+
+```
+
+```{r}
+
+integrated_seurat <- FindNeighbors(integrated_seurat, dims = 1:20, k.param = 81)
+integrated_seurat <- FindClusters(integrated_seurat, resolution = c(0.6,1) )
+
+```
+```{r}
+DimPlot(integrated_seurat, group.by = "orig.ident")
+#much better integration
+```
+```{r}
+#integrated_seurat$integrated_snn_res.0.6
+DimPlot(integrated_seurat, group.by = "integrated_snn_res.0.6", label=TRUE)
+DimPlot(integrated_seurat, group.by = "integrated_snn_res.1", label = TRUE)
+
+```
+
+Now cells per cluster
+
+```{r}
+table(integrated_seurat$integrated_snn_res.0.6, integrated_seurat$orig.ident)
+
+table(integrated_seurat$integrated_snn_res.1, integrated_seurat$orig.ident)
+```
+
+Which cells match to which subject?
+
+From Michaels correlation:
+```{r}
+code.tb <- read.table(file = "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/Genotype_ID_key.txt", 
+header = TRUE, sep = "\t")
+
+class(code.tb)
+
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/IntegratedSeuratGraphs.RDS")
+
+saveRDS(seu, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/IntegratedSeuratGraphs.RDS")
+
+```
+```{r}
+
+# add the assigned lines into the seurat object
+# Assuming your data frame is named 'lookup_df' and has columns 'Genotype_ID' and 'Cluster_ID'
+lookup_table <- code.tb[, c("Cluster_ID", "Genotype_ID")]
+# add the a new metadata slot
+seu$Genotype_ID <- lookup_table$Genotype_ID[match(seu$souporcell_assignment, lookup_table$Cluster_ID)]
+
+
+seu$Genotype_ID <- ifelse(
+  seu$souporcell_assignment %in% lookup_table$Cluster_ID,
+  lookup_table$Genotype_ID[match(seu$souporcell_assignment, lookup_table$Cluster_ID)],
+  "unassigned"
+)
+
+
+
+unique(seu$Genotype_ID)
+
+```
+
+Now make a table of the assigned cell counts
+
+```{r}
+
+gene.count <- as.data.frame(table(seu$Genotype_ID))
+
+group.gene <- as.data.frame(table(seu$souporcell_assignment, seu$Genotype_ID))
+
+soup.count <- as.data.frame(table(seu$souporcell_assignment))
+
+# Assuming your long table is named 'long_table'
+wide_table <- group.gene %>%
+  pivot_wider(names_from = Var1, values_from = Freq)
+
+write.csv(wide_table,"/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/SoupoGeneID.csv")
+
+```
+
