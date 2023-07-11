@@ -100,7 +100,7 @@ I will filter for higher counts and lower counts
 # RNA > 300
 # doublets we might just remove by the assignment or use doublet finder later
 
-seu.ft2 <- subset(seu.ft, nCount_RNA > 2000 & nFeature_RNA > 300)
+ seu.ft2 <- subset(seu.ft, nCount_RNA > 2000 & nFeature_RNA > 300)
 dim(seu)
 dim(seu.ft)
 dim(seu.ft2)
