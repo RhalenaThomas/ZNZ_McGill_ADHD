@@ -35,6 +35,7 @@ dim(seu)
 ```{r}
 
 table(seu$souporcell_assignment)
+subject.table <- as.data.frame(table(seu$souporcell_assignment))
 
 ```
 
@@ -536,7 +537,10 @@ seu <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/Int
 
 saveRDS(seu, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/IntegratedSeuratGraphs.RDS")
 
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/IntegratedSeuratGraphs.RDS")
+
 ```
+
 ```{r}
 
 # add the assigned lines into the seurat object
@@ -575,4 +579,7 @@ wide_table <- group.gene %>%
 write.csv(wide_table,"/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/SoupoGeneID.csv")
 
 ```
+
+
+
 

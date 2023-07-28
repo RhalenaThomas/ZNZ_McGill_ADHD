@@ -480,11 +480,16 @@ Save so far
 saveRDS(seu, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/seu_ann_June28.RDS")
 saveRDS(integrated_seurat, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/Integr_seu_ann_June28.RDS")
 
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/Integr_seu_ann_June28.RDS")
+
+
 ```
 
 
 ```{r}
 DimPlot(seu, group.by = "souporcell_assignment", split.by = "CellTypes")
+
+DimPlot(seu)
 
 ```
 
@@ -689,6 +694,28 @@ Check if it's correct
 DimPlot(seu)
 
 ```
+
+Add shorter ID names / cell line names
+
+```{r}
+Idents(seu) <- "Genotype_ID"
+levels(seu)
+
+line.clone <- c("MR010i3","KO15i1","KO8i13","KO11i10",
+              "unassigned","MR014i27","MR023i17","MR01i3","NR2i21","K05i12")
+
+names(line.clone) <- levels(seu)
+
+seu <- RenameIdents(seu, line.clone)
+seu <- AddMetaData(object=seu, metadata=Idents(seu), col.name = "line.clone")
+
+DimPlot(seu, label = FALSE)
+
+
+
+```
+
+
 Add meta data - diagnosis
 
 ```{r}
@@ -720,8 +747,11 @@ levels(seu)
 
 ```
 
+
+
 ```{r}
 # get just the NPC-div cells
+DefaultAssay(seu) <- "RNA"
 NPC_div <- subset(seu, idents = "NPC-div")
 levels(NPC_div)
 
@@ -737,9 +767,75 @@ NPC_div_DGE <- FindMarkers(NPC_div, ident.1 = "ADHD",
 
 write.csv(NPC_div_DGE, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/NPC_div_DGE.csv")
 
+NPC_div <- read.csv("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/NPC_div_DGE.csv")
+
+```
+
+Make volcano plot
+
+```{r, fig.height= 2.5}
+#library(EnhancedVolcano)
+
+#head(NPC_div)
+
+
+
+EnhancedVolcano(NPC_div,
+    lab = NPC_div$X,
+    xlim = c(-0.25,0.25),
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+      pCutoff = 10e-32,
+    FCcutoff = 0.025,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+
 
 
 ```
+
+Heat map of some interesting genes
+
+```{r}
+ft <- c("WNT4","ARX","CA4","GDPD2","PHOX2B","CYTOR","GSX1","PLP1")
+DoHeatmap(seu, features = ft, group.by = 
+          "Diagnosis")
+
+DoHeatmap(seu, features = ft, group.by = 
+          "line.clone")
+
+```
+
+
+```{r}
+ft <- c("WNT4","ARX","CA4","GDPD2","PHOX2B","CYTOR","GSX1","PLP1")
+DotPlot(seu, features = ft, group.by = 
+          "Diagnosis") +RotatedAxis()
+
+DotPlot(seu, features = ft, group.by = 
+          "line.clone")+ RotatedAxis()
+
+```
+
+
+
+Double group heat map function
+
+
+
+see double variable heatmap
+
+```{r}
+
+#function not working right now
+  
+
+
+```
+
+
+
 
 
 Check some expression
@@ -772,7 +868,47 @@ NPC_stem_DGE <- FindMarkers(NPC_stem, ident.1 = "ADHD",
 
 write.csv(NPC_stem_DGE, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/NPC_stem_DGE.csv")
 
+
+NPC_stem <- read.csv("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/NPC_stem_DGE.csv")
+
+
 ```
+
+Volcono NPC stem DGE
+
+```{r, fig.height= 2.5}
+
+
+EnhancedVolcano(NPC_stem,
+    lab = NPC_stem$X,
+    xlim = c(-0.25,0.25),
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+      pCutoff = 10e-32,
+    FCcutoff = 0.05,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+```
+
+Look at some genes in the NPC-stem DGE
+
+```{r}
+ft <- c("IFI16","AHNAK","PLA2G16","OLFML3","PDLIM3","CSRP1","MX1","ACKR3"
+)
+DotPlot(seu, features = ft, group.by = 
+          "Diagnosis") +RotatedAxis()
+
+DotPlot(seu, features = ft, group.by = 
+          "line.clone")+ RotatedAxis()
+
+
+
+```
+
+
+
+
 
 ```{r}
 
@@ -800,7 +936,581 @@ neurons_DGE <- FindMarkers(neurons, ident.1 = "ADHD",
 write.csv(neurons_DGE, "/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/Neurons_DGE.csv")
 
 
+neurons <- read.csv("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/Neurons_DGE.csv")
+
+
 ```
+
+
+Volcano plot Neurons
+
+```{r, fig.height= 2.5}
+
+EnhancedVolcano(neurons,
+    lab = neurons$X,
+    xlim = c(-0.25,0.25),
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+      pCutoff = 10e-32,
+    FCcutoff = 0.075,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+```
+Check some genes with the dotplot
+
+```{r}
+ft <- c("CRYBB1","ASS1","PDLIM1","GDF15","TMEM176A","LHX1","TEM176B","NHLH2")
+DotPlot(seu, features = ft, group.by = 
+          "Diagnosis") +RotatedAxis()
+
+DotPlot(seu, features = ft, group.by = 
+          "line.clone")+ RotatedAxis()
+
+
+
+```
+
+
+
+Add some more phenotype information
+
+```{r}
+Idents(seu) <- "line.clone"
+levels(seu)
+
+sex <- c("M","M","F","M",
+              "unassigned-both","M","M","M","M","M")
+
+names(sex) <- levels(seu)
+
+seu <- RenameIdents(seu, sex)
+seu <- AddMetaData(object=seu, metadata=Idents(seu), col.name = "sex")
+
+DimPlot(seu, label = FALSE)
+
+
+```
+
+
+Balancing the cell numbers more between lines
+
+```{r}
+table(seu$line.clone)
+```
+```{r}
+Idents(seu) <- "line.clone"
+min.seu <- subset(seu, downsample = 376)
+table(min.seu$line.clone)
+table(min.seu$Diagnosis)
+
+```
+
+Try differential gene expression 
+
+```{r}
+unique(min.seu$CellTypesInt2)
+Idents(min.seu) <- "CellTypesInt2"
+seu.npc.stem <- subset(min.seu, idents = "NPC-stem")
+
+Idents(seu.npc.stem) <- "Diagnosis"
+DGE2_downsample_NPC_stem <- FindMarkers(seu.npc.stem, ident.1 = "ADHD",
+                           ident.2 = "Control", logfc.threshold = 0.025)
+
+```
+
+
+```{r, fig.height= 3}
+# plot with all cells included before down sampling
+# LFC cutoff of 0.01
+
+EnhancedVolcano(NPC_stem,
+    lab = NPC_stem$X,
+    xlim = c(-0.5,0.5),
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+      pCutoff = 2,
+    FCcutoff = 0.1,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+# with downsampling and cutoff for 0.025
+
+EnhancedVolcano(DGE2_downsample_NPC_stem,
+    lab = rownames(DGE2_downsample_NPC_stem),
+    xlim = c(-0.5,0.5),
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+      pCutoff = 2,
+    FCcutoff = 0.1,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+```
+
+```{r}
+unique(seu$CellTypesInt2)
+unique(seu$CellTypesInt)
+unique(seu$CellTypes)
+
+```
+
+Check NPC-mix without downsampling
+
+```{r}
+
+
+Idents(seu) <- "CellTypesInt2"
+npc.mix <- subset(seu, idents = "NPC-mixed")
+
+Idents(npc.mix) <- "Diagnosis"
+NPC_mix_DGE <- FindMarkers(npc.mix, ident.1 = "ADHD",
+                           ident.2 = "Control", logfc.threshold = 0.025)
+
+```
+
+
+Volxano plot
+
+```{r, fig.height= 3}
+
+EnhancedVolcano(NPC_mix_DGE,
+    lab = rownames(NPC_mix_DGE),
+    xlim = c(-1,1),
+    x = 'avg_log2FC',
+    y = 'p_val',
+    #pCutoff = 10,
+    FCcutoff = 0.2,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+
+```
+
+```{r}
+head(NPC_mix_DGE)
+```
+
+
+
+Do a GO analysis 
+
+```{r}
+library(enrichR)
+setEnrichrSite("Enrichr") # Human genes
+# list of all the databases
+# get the possible libraries
+dbs <- listEnrichrDbs()
+
+# this will list the possible libraries
+dbs
+
+# select libraries with cell types
+db <- c('KEGG_2019_Human','GWAS_Catalog_2019',"GO_Biological_Process_2023",
+        "GO_Cellular_Component_2023","GO_Molecular_Function_2023")
+
+dataframe <- NPC_mix_DGE
+library(dplyr)
+
+# add genes column to DGE it is X if saved to csv
+NPC_mix_DGE$X <- rownames(NPC_mix_DGE)
+
+# function for a quick look
+getGSA <- function(dataframe, up_or_down = "up", LFCthresh = 0.01,
+                          pval_thresh = 0.05){
+  if(up_or_down == "up"){
+      genelist <- dataframe %>% filter(avg_log2FC >= LFCthresh & p_val_adj < pval_thresh)
+  }else {
+      genelist <- dataframe %>% filter(avg_log2FC <= LFCthresh & p_val_adj < pval_thresh)
+  }
+genes <- genelist$X
+  # the cell type libraries
+  # get the results for each library
+  results <- enrichr(genes, databases = db)
+  # visualize the results
+  
+print(plotEnrich(results[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'KEGG'))
+print(plotEnrich(results[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'GWAS'))
+print(plotEnrich(results[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'GObio'))
+print(plotEnrich(results[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'GOcell'))
+print(plotEnrich(results[[5]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'GOmol'))
+return(results)
+}
+
+GONPCmix <- getGSA(NPC_mix_DGE, up_or_down = "up",LFCthresh = 0.02,pval_thresh = 0.05)
+
+resDF <- GONPCmix
+
+plotEnrich(resDF[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'KEGG')
+
+
+dfGO <- GONPCmix[[1]]
+write.csv(dfGO, "KEGGanalysisNPCMixDGEup.csv")
+
+GWAS <- GONPCmix[[2]]
+write.csv(GWAS, "GWASNPCMixDGEup.csv")
+
+dfGO <- GONPCmix[[3]]
+write.csv(dfGO, "GObioNPCMixDGEup.csv")
+
+dfGO <- GONPCmix[[4]]
+write.csv(dfGO, "GOcellNPCMixDGEup.csv")
+
+dfGO <- GONPCmix[[5]]
+write.csv(dfGO, "GOmoleNPCMixDGEup.csv")
+
+
+```
+
+Look at the down regulated (in ADHD NPC-mix)
+
+
+```{r}
+
+GONPCmix <- getGSA(NPC_mix_DGE, up_or_down = "down",LFCthresh = -0.02,pval_thresh = 0.05)
+
+
+```
+
+
+
+
+Try pseudobulk
+
+ 
+```{r}
+unique(seu$CellTypesInt2)
+
+Idents(seu) <- "CellTypesInt2"
+levels(seu)
+
+
+
+groupcells <- c("RG","NPC","glia","NPC","Neuron","NPC","astro","glia")
+names(groupcells) <- levels(seu)
+
+seu <- RenameIdents(seu, groupcells)
+seu <- AddMetaData(object=seu, metadata=Idents(seu), col.name = "CelltypeMain")
+
+DimPlot(seu, label = TRUE)
+
+
+```
+
+
+```{r}
+
+Idents(seu) <- "CelltypeMain"
+npc<- subset(seu, idents = "NPC")
+
+Idents(npc) <- "Diagnosis"
+NPC_mix_DGE <- FindMarkers(npc, ident.1 = "ADHD",
+                           ident.2 = "Control", logfc.threshold = 0.025)
+dim(NPC_mix_DGE)
+
+
+```
+
+Volcano plot
+
+```{r, fig.height=3}
+
+
+EnhancedVolcano(NPC_mix_DGE,
+    lab = rownames(NPC_mix_DGE),
+    xlim = c(-0.5,0.5),
+    x = 'avg_log2FC',
+    y = 'p_val',
+    #pCutoff = 10,
+    FCcutoff = 0.1,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+```
+
+We think it's better to keep the sub groups of NPC separate
+
+```{r}
+Idents(seu) <- "CelltypeMain"
+rg<- subset(seu, idents = "RG")
+
+Idents(rg) <- "Diagnosis"
+RG_DGE <- FindMarkers(rg, ident.1 = "ADHD",
+                           ident.2 = "Control", logfc.threshold = 0.025)
+dim(RG_DGE)
+
+
+```
+
+```{r, fig.height=3}
+
+EnhancedVolcano(RG_DGE,
+    lab = rownames(RG_DGE),
+    xlim = c(-0.5,0.5),
+    x = 'avg_log2FC',
+    y = 'p_val',
+    pCutoff = 0.05,
+    FCcutoff = 0.1,
+    pointSize = 3.0,
+    labSize = 6.0)
+
+```
+
+
+
+Try pseudobulk
+https://hbctraining.github.io/scRNA-seq_online/lessons/pseudobulk_DESeq2_scrnaseq.html
+
+```{r}
+# filter to have just the things we want (identified subjects)
+
+Idents(seu) <- "Diagnosis"
+seu2 <- subset(seu, idents = c("ADHD","Control"))
+table(seu2$Diagnosis)
+
+```
+
+
+```{r}
+# make sce
+
+sce <- as.SingleCellExperiment(seu2)
+counts(sce) <- seu2@assays$RNA@counts
+
+
+
+```
+
+Prepare single cell data
+
+```{r}
+#sce@colData$CellTypesInt2
+
+cluster_names <- levels(sce@colData$CellTypesInt2)
+cluster_names
+length(cluster_names)
+
+line_names <- levels(sce@colData$line.clone)
+line_names
+length(line_names)
+
+
+```
+
+```{r}
+
+library(SingleCellExperiment)
+
+groups <- colData(sce)[,c("CellTypesInt2", "line.clone")]
+head(groups)
+# Aggregate across cluster-sample groups
+# transposing row/columns to have cell_ids as row names matching those of groups
+
+# install from github
+library(devtools)
+install_github("cvarrichio/Matrix.utils")
+
+library(Matrix.utils)
+
+
+aggr_counts <- aggregate.Matrix(t(sce@assays@data@listData$logcounts), 
+                                groupings = groups, fun = "sum") 
+
+# using log counts for now
+
+# Explore output matrix
+class(aggr_counts)
+dim(aggr_counts)
+aggr_counts[1:6, 1:6]
+
+
+```
+
+```{r}
+
+# Transpose aggregated matrix to have genes as rows and samples as columns
+aggr_counts <- t(aggr_counts)
+aggr_counts[1:6, 1:6]
+
+```
+
+```{r}
+library(data.table)
+# Understanding tstrsplit()
+
+## Exploring structure of function output (list)
+tstrsplit(colnames(aggr_counts), "_") %>% str()
+
+## Comparing the first 10 elements of our input and output strings
+head(colnames(aggr_counts), n = 10)
+head(tstrsplit(colnames(aggr_counts), "_")[[1]], n = 10)
+
+```
+
+Look at a cluster
+
+```{r}
+
+# Using which() to look up tstrsplit() output
+npc_idx <- which(tstrsplit(colnames(aggr_counts), "_")[[1]] == "NPC-mixed")
+npc_idx
+
+colnames(aggr_counts)[npc_idx]
+aggr_counts[1:10, npc_idx]
+```
+
+Make a list with agg for each cluster
+
+```{r}
+
+# As a reminder, we stored our cell types in a vector called cluster_names
+cluster_names
+
+
+# Loop over all cell types to extract corresponding counts, and store information in a list
+
+## Initiate empty list
+counts_ls <- list()
+
+for (i in 1:length(cluster_names)) {
+
+  ## Extract indexes of columns in the global matrix that match a given cluster
+  column_idx <- which(tstrsplit(colnames(aggr_counts), "_")[[1]] == cluster_names[i])
+  
+  ## Store corresponding sub-matrix as one element of a list
+  counts_ls[[i]] <- aggr_counts[, column_idx]
+  names(counts_ls)[i] <- cluster_names[i]
+
+}
+
+# Explore the different components of the list
+str(counts_ls)
+```
+
+Make a meta data structure
+
+```{r}
+
+# Reminder: explore structure of metadata
+head(colData(sce))
+
+# Extract sample-level variables
+metadata <- colData(sce) %>% 
+  as.data.frame() %>% 
+  dplyr::select(CellTypesInt2,line.clone, Diagnosis, sex)
+
+dim(metadata)
+head(metadata)
+
+# Exclude duplicated rows
+metadata <- metadata[!duplicated(metadata), ]
+
+dim(metadata)
+head(metadata)
+```
+```{r}
+# Number of cells per sample and cluster
+t <- table(colData(sce)$line.clone,
+           colData(sce)$CellTypeInt2)
+#t[1:6, 1:6]
+
+
+
+```
+
+```{r}
+# Creating metadata list
+
+## Initiate empty list
+metadata_ls <- list()
+
+for (i in 1:length(counts_ls)) {
+  
+    ## Initiate a data frame for cluster i with one row per sample (matching column names in the counts matrix)
+    df <- data.frame(cluster_sample_id = colnames(counts_ls[[i]]))
+    
+    ## Use tstrsplit() to separate cluster (cell type) and sample IDs
+    df$cluster_id <- tstrsplit(df$cluster_sample_id, "_")[[1]]
+    df$sample_id  <- tstrsplit(df$cluster_sample_id, "_")[[2]]
+    
+    
+    ## Retrieve cell count information for this cluster from global cell count table
+    idx <- which(colnames(t) == unique(df$cluster_id))
+    cell_counts <- t[, idx]
+    
+    ## Remove samples with zero cell contributing to the cluster
+    cell_counts <- cell_counts[cell_counts > 0]
+    
+    ## Match order of cell_counts and sample_ids
+    sample_order <- match(df$sample_id, names(cell_counts))
+    cell_counts <- cell_counts[sample_order]
+    
+    ## Append cell_counts to data frame
+    df$cell_count <- cell_counts
+    
+    
+    ## Join data frame (capturing metadata specific to cluster) to generic metadata
+    df <- plyr::join(df, metadata, 
+                     by = intersect(names(df), names(metadata)))
+    
+    ## Update rownames of metadata to match colnames of count matrix, as needed later for DE
+    rownames(df) <- df$cluster_sample_id
+    
+    ## Store complete metadata for cluster i in list
+    metadata_ls[[i]] <- df
+    names(metadata_ls)[i] <- unique(df$cluster_id)
+
+}
+
+# Explore the different components of the list
+str(metadata_ls)
+
+```
+DGEseq2
+
+```{r}
+idx <- which(names(counts_ls) == "NPC-mixed")
+cluster_counts <- counts_ls[[idx]]
+cluster_metadata <- metadata_ls[[idx]]
+
+
+```
+
+checking
+```{r}
+
+# Check contents of extracted objects
+cluster_counts[1:6, 1:6]
+head(cluster_metadata)
+
+# Check matching of matrix columns and metadata rows
+all(colnames(cluster_counts) == rownames(cluster_metadata))
+```
+
+Try directly in seurat
+
+```{r}
+
+agg.npc <- AggregateExpression(
+  npc.mix,
+  return.seurat = FALSE,
+  group.by = "line.clone",
+  add.ident = NULL,
+  slot = "data",
+  verbose = TRUE
+)
+
+#no good
+
+```
+
+
+Try another website
+
+```{r}
+
+```
+
 
 
 
