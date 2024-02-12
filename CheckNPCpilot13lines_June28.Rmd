@@ -485,6 +485,27 @@ seu <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/Int
 
 ```
 
+Check the object
+
+```{r}
+#library(Seurat)
+colnames(seu@meta.data)
+
+```
+
+
+```{r}
+DimPlot(seu, group.by = "CellTypes")
+DimPlot(seu, group.by = "CellTypes1")
+DimPlot(seu, group.by = "Celltypes1")
+DimPlot(seu, group.by = "CellTypesInt")
+DimPlot(seu, group.by = "CellTypesInt2")
+
+```
+
+
+
+
 
 ```{r}
 DimPlot(seu, group.by = "souporcell_assignment", split.by = "CellTypes")

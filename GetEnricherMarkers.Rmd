@@ -1,0 +1,148 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Check Enricher Results scRNAseq pipeline
+
+
+```{r}
+
+library(Seurat)
+library(tidyverse)
+library(enrichR)
+
+
+```
+
+Get the EnrichR libraries and run the function to check libraries and make plots
+```{r}
+setEnrichrSite("Enrichr") # Human genes
+# list of all the databases
+# get the possible libraries
+dbs <- listEnrichrDbs()
+
+# this will list the possible libraries
+dbs
+
+# select libraries with cell types
+db <- c('CellMarker_Augmented_2021','Azimuth_Cell_Types_2021')
+
+# function for a quick look
+checkCelltypes <- function(cluster_num = 0){
+  clusterX <- ClusterMarkers %>% filter(cluster == cluster_num & avg_log2FC > 0.25)
+  genes <- clusterX$gene
+  # the cell type libraries
+  # get the results for each library
+  clusterX.cell <- enrichr(genes, databases = db)
+  # visualize the results
+print(plotEnrich(clusterX.cell[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'CellMarker_Augmented_2021'))
+print(plotEnrich(clusterX.cell[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value", title = 'Azimuth_Cell_Types_2021'))
+
+}
+
+
+
+```
+
+
+Read in the data from HPCs
+
+```{r}
+
+ClusterMarkers <- read.csv("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/ADHDresultsFeb10/NSC/step7/info7/marker/ClusterMarkers.csv")
+  
+  
+```
+
+
+Run to get markers for each cluster 
+
+
+```{r}
+
+cluster0 <- checkCelltypes(cluster_num = 0)
+
+```
+Cluster 0  gabaergic neurons
+
+
+```{r}
+cluster1 <- checkCelltypes(cluster_num = 1)
+```
+Cluster 1 fibroblast
+
+
+```{r}
+cluster2 <- checkCelltypes(cluster_num = 2)
+```
+Cluster 2 is neurons
+
+
+```{r}
+# cluster 3
+cluster3 <- checkCelltypes(cluster_num = 3)
+
+```
+Cluster 3 are proliferating progenitors
+
+
+```{r}
+# cluster 4
+cluster4 <- checkCelltypes(cluster_num = 4)
+```
+Cluster 4 - neural stem, proliferating
+
+
+
+```{r}
+# cluster 5
+cluster5 <- checkCelltypes(cluster_num = 5)
+
+```
+Cluster 5 proliferating neural stem cells
+
+
+
+```{r}
+# cluster 6
+cluster6 <- checkCelltypes(cluster_num = 6)
+
+```
+Cluster 6 embryonic coritical astrocytes, neurons 
+
+```{r}
+# cluster 7
+cluster7 <- checkCelltypes(cluster_num = 7)
+
+```
+Cluster 7 - dividing cells, neural stem cells
+
+```{r}
+# cluster 8
+cluster8 <- checkCelltypes(cluster_num = 8)
+```
+
+Cluster 8 - muscle?? 
+
+```{r}
+# cluster 9
+cluster9 <- checkCelltypes(cluster_num = 9)
+```
+
+Cluster 9 - cholinergic neurons, OPC
+
+```{r}
+# cluster 10
+cluster10 <- checkCelltypes(cluster_num = 10)
+```
+T cell, vasculature, NSC
+
+```{r}
+# cluster 11
+cluster11 <- checkCelltypes(cluster_num = 11)
+```
+
+NPC - prefrontal cortex
+
+
