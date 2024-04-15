@@ -1,0 +1,254 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Data annotation - Merge clusters
+
+```{r}
+
+library(Seurat)
+library(tidyverse)
+library(CelltypeR)
+
+```
+
+
+Read in the step7 object
+
+```{r}
+# NSC
+
+nsc <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/ADHDresultsFeb10/NSC/step7/objs7/seu_step7.rds")
+colnames(nsc@meta.data)
+# add my annotations made earlier 
+table(nsc$Rhalena_pool1_obj_2_predictions,nsc$integreted_snn_res.0.25)
+
+annotations <- c("ExNeurons","Fibroblasts","Neurons","Progen-Div","NSC-div","NSC-div-ki67","NPC-glia",
+                 "NPC-glia-div","NPC","NeuronsChol","NSC-vasculature","NPC-cortical")
+cluster.ids<-c("Excitatory_neurons", "Fibroblasts", "Neurons", "Progenitor_div", "NSC_div", "NSC_div_KI67", "NPC_glia", "NPC_div_glia", "NPC", "Cholinergic_neurons", "NSC_vasculature", "NPC_cortical")
+# add annotations
+  Idents(nsc) <- 'integrated_snn_res.0.25'
+  names(cluster.ids) <- levels(nsc)
+  nsc <- RenameIdents(nsc, cluster.ids)
+  nsc <- AddMetaData(object=nsc, metadata=Idents(nsc), col.name = "Celltypes1")
+  
+  
+  
+  
+cluster.ids<-c("Neurons", "Glia", "Neurons", "NSC", "NSC", "NSC", "NPC-glia", "NPC-glia", "NPC", "Neurons", "NSC", "NSC")
+ 
+    Idents(nsc) <- 'integrated_snn_res.0.25'
+  names(cluster.ids) <- levels(nsc)
+  nsc <- RenameIdents(nsc, cluster.ids)
+  nsc <- AddMetaData(object=nsc, metadata=Idents(nsc), col.name = "CelltypesMain")
+   
+ 
+  
+cluster.ids<-c("Neurons", "Glia", "Neurons", "Progenitor_div", "NSC_div", "NSC_div_KI67", "NPC_glia", "NPC_div_glia", "NPC", "Neurons", "NSC_vasculature", "NPC_cortical")   
+    
+cluster.ids<-c("Neurons_Ex", "Fibroblasts", "Neurons", "Progenitors", "NSC", "NSC", "NPC_glia", "Progenitors", "NPC", "Neurons", "NSC_vasculature", "NSC") # Cell types simplified
+
+cluster.ids<-c("Neurons", "Fibroblasts", "Neurons", "Progenitors", "NSC", "NSC", "NSC", "Progenitors", "NPC", "Neurons", "NSC_vasculature", "NSC") # Cell types most simplified
+
+ 
+
+cluster.ids<-c("Neurons_Ex", "Fibroblasts", "Neurons", "Progenitors", "NSC", "NSC", "NPC_glia", "Progenitors", "NPC", "Neurons", "NSC_vasculature", "NSC") # Cell types simplified
+  Idents(nsc) <- 'integrated_snn_res.0.25'
+  names(cluster.ids) <- levels(nsc)
+  nsc <- RenameIdents(nsc, cluster.ids)
+  nsc <- AddMetaData(object=nsc, metadata=Idents(nsc), col.name = "CelltypesMain2")
+   
+    
+    
+
+```
+
+
+See the Dimplot
+
+```{r}
+DimPlot(nsc, group.by = 'integrated_snn_res.0.25', label = TRUE) 
+
+DimPlot(nsc, group.by = "Celltypes1", label = TRUE)
+#DimPlot(nsc, group.by = "Celltypes2", label = TRUE)
+#DimPlot(nsc, group.by = "CelltypesMain", label = TRUE)
+DimPlot(nsc, group.by = "CelltypesMain2", label = TRUE)
+#DimPlot(nsc, reduction = "umap", label = TRUE, pt.size = 0.1, raster = FALSE) 
+
+```
+
+
+```{r}
+
+Idents(nsc) <- "CelltypesMain2"
+table(nsc$CelltypesMain2)
+unique(nsc$CelltypesMain2)
+nsc_sub <- FindMarkers(nsc, ident.1 = "NSC_vasculature", ident.2 = "NSC", only.pos = FALSE)
+
+write.csv(nsc_sub, "subtypeMarkers_NSCvasVS_NSC.csv")
+
+
+NPC_markers <- FindMarkers(nsc, ident.1 = "NPC", ident.2 = c("NPC_glia", "Progenitors"), only.pos = TRUE)
+Progenitor_markers <- FindMarkers(nsc, ident.1 = "Progenitors", ident.2 = c("NPC_glia", "NPC"), only.pos = TRUE)
+NPC_glia <- FindMarkers(nsc, ident.1 = "NPC_glia", ident.2 = c("Progenitors", "NPC"), only.pos = TRUE)
+
+Neurons_sub <- FindMarkers(nsc, ident.1 = "Neurons", ident.2 = "Neurons_Ex", only.pos = FALSE)
+
+
+
+```
+
+Name Fibroblast as Glia
+Keep NPC-glia
+Change Precursor vs NPC
+
+NSC-vas is now NSC-APOA1
+NSC- SOX2
+
+NPC-MEF2C
+Progen is really NPC-POU5F1
+NPC-S100B
+
+Neurons-DCX   (was neurons)
+Neurons-GRIA1 (was excitatory neurons)
+
+See the neurons object
+
+
+```{r}
+
+cluster.ids<-c("Neurons-GRIA1", "Glia", "Neurons-DCX", "NPC-POU5F1", "NSC-SOX2", "NSC-SOX2", "NPC-S100B", "NPC-POU5F1", "NPC-MEF2C", "Neurons-DCX", "NSC-APOA1", "NSC-SOX2") # Cell types simplified
+  Idents(nsc) <- 'integrated_snn_res.0.25'
+  names(cluster.ids) <- levels(nsc)
+  nsc <- RenameIdents(nsc, cluster.ids)
+  nsc <- AddMetaData(object=nsc, metadata=Idents(nsc), col.name = "CelltypesFinal")
+  
+DimPlot(nsc, group.by = "CelltypesFinal", label = TRUE)
+  
+  
+```
+
+
+
+
+
+```{r}
+
+fcn <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/ADHD_ZNZ_Mcgill/ADHDresultsFeb10/FCN/step7/objs7/seu_step7.rds")
+```
+
+```{r}
+DimPlot(fcn)
+DimPlot(fcn, label = TRUE)
+
+#fcn$integrated_snn_res.0.25
+```
+
+```{r}
+
+an <- get_annotation(fcn, seu.cluster =  fcn$RNA_snn_res.0.25,seu.label = fcn$Rhalena_pool1_obj_annot2_predictions,top_n = 5, Label = "Predicted")
+
+tb <- as.data.frame(table(fcn$integrated_snn_res.0.25,fcn$Rhalena_pool1_obj_annot2_predictions))
+tb
+
+
+
+```
+
+
+Transfer lables predictions
+
+# need to match version 4 and version 5 seurat
+
+```{r}
+
+
+```
+
+
+
+
+
+
+```{r}
+# this is the reference data
+MBO <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/AST23_BrainComm/MBOclusters_names29072021.rds")
+
+Idents(MBO) <- "cluster_labels"
+
+DefaultAssay(MBO) <- "RNA"
+DefaultAssay(fcn) <- "integrated"
+# find the reference anchors
+print("finding reference anchors")
+Myanchors <- FindTransferAnchors(reference = MBO ,query = fcn, dims = 1:30)
+# can try a range of dims 20-50
+print("getting predictions")
+predictions <- TransferData(anchorset = Myanchors, refdata = MBO$cluster_labels)
+fcn <- AddMetaData(fcn, metadata = predictions)
+
+
+print(table(MO.query$predicted.id))
+```
+
+
+Visualize expression 
+
+
+```{r}
+
+earlyNeur = c("DCX","NEUROD1","TBR1")
+
+DefaultAssay(fcn) <- "integrated"
+FeaturePlot(fcn, features = earlyNeur)
+DotPlot(fcn, features = earlyNeur, group.by = "integrated_snn_res.0.25")
+
+```
+
+```{r}
+
+proliferation = c("PCNA","MKI67")
+neuralstem = c("SOX2","NES","PAX6","MASH1")
+
+DotPlot(fcn, features = proliferation, group.by = "integrated_snn_res.0.25")
+FeaturePlot(fcn, features = proliferation)
+
+```
+```{r}
+neuralstem = c("SOX2","NES","PAX6","MASH1")
+
+DotPlot(fcn, features = neuralstem, group.by = "integrated_snn_res.0.25")
+FeaturePlot(fcn, features = neuralstem)
+
+```
+
+```{r}
+# Try some first draft annotations
+# rough annotations
+
+
+cluster.ids<-c("Differentating_to_neurons", "Prolifer_NeuralStem", "NPC", "Neurons_modulator", "Endo_Glia", "Endo_RG", "Endo_neuroblasts", "NPC_RG_dividing", "RG_neural", "Neurons") 
+  Idents(fcn) <- 'integrated_snn_res.0.25'
+  names(cluster.ids) <- levels(fcn)
+  fcn <- RenameIdents(fcn, cluster.ids)
+  fcn <- AddMetaData(object=fcn, metadata=Idents(fcn), col.name = "Celltypes1")
+
+DimPlot(fcn, label = TRUE, group.by = "Celltypes1")
+
+```
+
+```{r}
+# simplify cell types 1
+cluster.ids<-c("Differentating_to_neurons", "NSC", "NSC", "Neurons", "Endothelial", "Endothelial", "Endothelial", "NSC", "Neuroblasts", "Neurons") 
+  Idents(fcn) <- 'integrated_snn_res.0.25'
+  names(cluster.ids) <- levels(fcn)
+  fcn <- RenameIdents(fcn, cluster.ids)
+  fcn <- AddMetaData(object=fcn, metadata=Idents(fcn), col.name = "CelltypesMain1")
+
+DimPlot(fcn, label = TRUE, group.by = "CelltypesMain1")
+
+
+
+```
+
+
